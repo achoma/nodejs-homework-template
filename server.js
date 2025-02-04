@@ -1,10 +1,14 @@
 const mongoose = require("mongoose");
 const app = require("./app");
+require("dotenv").config();
 
-const DB_HOST = "mongodb+srv://admin:Kamil2009@cluster0.wk2zx.mongodb.net/";
+const uri = process.env.MONGO_URI;
 
 mongoose
-  .connect(DB_HOST, { useNewUrlParser: true, useUnifiedTopology: true })
+  .connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
   .then(() => {
     console.log("Database connection successful");
     app.listen(3000, () => {
@@ -12,6 +16,6 @@ mongoose
     });
   })
   .catch((error) => {
-    console.log(`Database connection error: ${error.message}`);
+    console.log("Database connection error:", error.message);
     process.exit(1);
   });
