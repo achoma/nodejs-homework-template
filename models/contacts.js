@@ -1,45 +1,34 @@
-const { Schema, model } = require("mongoose");
-
-// Definiowanie schematu kontaktu
-const contactSchema = new Schema({
-  name: {
-    type: String,
-    required: [true, "Set name for contact"], // Pole wymagane
-  },
-  email: {
-    type: String, // Email może być pusty
-  },
-  phone: {
-    type: String, // Telefon może być pusty
-  },
-  favorite: {
-    type: Boolean,
-    default: false, // Domyślna wartość false
-  },
-});
-
-// Tworzenie modelu na podstawie schematu
-const Contact = model("Contact", contactSchema);
-
-// Funkcje CRUD
+const Contact = require("./contact");
 const listContacts = async () => {
-  return await Contact.find(); // Pobieranie wszystkich kontaktów
+  return await Contact.find({});
 };
 
 const getContactById = async (contactId) => {
-  return await Contact.findById(contactId); // Znalezienie kontaktu po ID
+  return await Contact.findById(contactId);
 };
 
 const removeContact = async (contactId) => {
-  return await Contact.findByIdAndRemove(contactId); // Usunięcie kontaktu po ID
+  return await Contact.findByIdAndRemove(contactId);
 };
 
 const addContact = async (body) => {
-  return await Contact.create(body); // Dodanie nowego kontaktu
+  return await Contact.create(body);
 };
 
 const updateContact = async (contactId, body) => {
-  return await Contact.findByIdAndUpdate(contactId, body, { new: true }); // Aktualizacja kontaktu po ID
+  return await Contact.findByIdAndUpdate(
+    contactId,
+    { $set: body },
+    { new: true }
+  );
+};
+
+const updateStatusContact = async (contactId, body) => {
+  return await Contact.findByIdAndUpdate(
+    contactId,
+    { $set: body },
+    { new: true }
+  );
 };
 
 module.exports = {
@@ -48,4 +37,5 @@ module.exports = {
   removeContact,
   addContact,
   updateContact,
+  updateStatusContact,
 };
