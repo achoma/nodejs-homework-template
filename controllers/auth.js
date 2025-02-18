@@ -1,50 +1,65 @@
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const User = require("../models/user");
-const gravatar = require("gravatar");
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { nanoid } from "nanoid";
+import User from "../models/user.js";
+import sendEmail from "../helpers/sendEmail.js";
 
-const signup = async (req, res, next) => {
+export const registerUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-
     const existingUser = await User.findOne({ email });
+
     if (existingUser) {
       return res.status(409).json({ message: "Email in use" });
     }
 
-    const avatarURL = gravatar.url(email, { s: "200", r: "pg", d: "retro" });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const verificationToken = nanoid();
 
     const newUser = new User({
       email,
-      password,
-      avatarURL,
+      password: hashedPassword,
+      verificationToken,
     });
+
     await newUser.save();
+
+    const verificationLink = `${req.protocol}://${req.get("host")}/users/verify/${verificationToken}`;
+
+    await sendEmail({
+      to: email,
+      subject: "Verify your email",
+      text: `Please verify your email by clicking on the following link: ${verificationLink}`,
+    });
 
     res.status(201).json({
       user: {
         email: newUser.email,
         subscription: newUser.subscription,
-        avatarURL: newUser.avatarURL,
       },
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-const login = async (req, res, next) => {
+export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-
     const user = await User.findOne({ email });
+
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: "Email or password is wrong" });
+    }
+
+    if (!user.verify) {
+      return res.status(401).json({ message: "Email not verified" });
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
+
     user.token = token;
     await user.save();
 
@@ -53,51 +68,60 @@ const login = async (req, res, next) => {
       user: {
         email: user.email,
         subscription: user.subscription,
-        avatarURL: user.avatarURL,
       },
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-const logout = async (req, res, next) => {
+export const verifyEmail = async (req, res) => {
   try {
-    const user = req.user;
+    const { verificationToken } = req.params;
+    const user = await User.findOne({ verificationToken });
+
     if (!user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    user.token = null;
+    user.verificationToken = null;
+    user.verify = true;
     await user.save();
 
-    res.status(204).send();
+    res.status(200).json({ message: "Verification successful" });
   } catch (error) {
-    next(error);
+    res.status(500).json({ message: error.message });
   }
 };
 
-const getCurrent = async (req, res, next) => {
+export const resendVerificationEmail = async (req, res) => {
   try {
-    const user = req.user;
+    const { email } = req.body;
 
-    if (!user) {
-      return res.status(401).json({ message: "Not authorized" });
+    if (!email) {
+      return res.status(400).json({ message: "missing required field email" });
     }
 
-    res.status(200).json({
-      email: user.email,
-      subscription: user.subscription,
-      avatarURL: user.avatarURL,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+    const user = await User.findOne({ email });
 
-module.exports = {
-  signup,
-  login,
-  logout,
-  getCurrent,
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.verify) {
+      return res.status(400).json({ message: "Verification has already been passed" });
+    }
+
+    const verificationLink = `${req.protocol}://${req.get("host")}/users/verify/${user.verificationToken}`;
+
+    await sendEmail({
+      to: email,
+      subject: "Verify your email",
+      text: `Please verify your email by clicking on the following link: ${verificationLink}`,
+    });
+
+    res.status(200).json({ message: "Verification email sent" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };

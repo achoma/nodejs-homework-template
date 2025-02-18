@@ -1,31 +1,27 @@
 const mongoose = require("mongoose");
-
-const Schema = mongoose.Schema;
+const bcrypt = require("bcryptjs");
+const { Schema, model } = mongoose;
 
 const userSchema = new Schema({
-  password: {
-    type: String,
-    required: [true, "Password is required"],
-  },
   email: {
     type: String,
     required: [true, "Email is required"],
     unique: true,
   },
-  subscription: {
+  password: {
     type: String,
-    enum: ["starter", "pro", "business"],
-    default: "starter",
+    required: [true, "Password is required"],
   },
-  token: {
-    type: String,
-    default: null,
+  verify: {
+    type: Boolean,
+    default: false,
   },
-  avatarURL: {
+  verificationToken: {
     type: String,
+    required: [true, "Verify token is required"],
   },
 });
 
-const User = mongoose.model("user", userSchema);
+const User = model("User", userSchema);
 
 module.exports = User;
